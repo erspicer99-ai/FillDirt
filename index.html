@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transit Grade Logbook</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --secondary: #64748b;
+            --success: #16a34a;
+            --bg: #f1f5f9;
+            --card: #ffffff;
+            --text: #1e293b;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .calculator-card {
+            background: var(--card);
+            padding: 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 450px;
+            margin-bottom: 20px;
+        }
+
+        h2 { margin-top: 0; color: var(--primary); text-align: center; }
+
+        .input-group { margin-bottom: 1rem; }
+        label { display: block; font-size: 0.8rem; font-weight: 700; margin-bottom: 0.3rem; text-transform: uppercase; color: var(--secondary); }
+        input { width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box; font-size: 1rem; }
+
+        .button-stack { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 1rem; }
+        button { padding: 12px; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; }
+        .btn-calc { background: var(--primary); color: white; grid-column: span 2; }
+        .btn-save { background: var(--success); color: white; display: none; }
+        .btn-reset { background: var(--secondary); color: white; }
+
+        #result-area {
+            margin: 1.5rem 0;
+            padding: 1rem;
+            background: #eff6ff;
+            border-radius: 8px;
+            text-align: center;
+            display: none;
+        }
+
+        .log-container {
+            width: 100%;
+            max-width: 450px;
+            background: white;
+            border-radius: 12px;
+            padding: 1rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+        th { text-align: left; border-bottom: 2px solid #e2e8f0; padding: 8px; color: var(--secondary); }
+        td { padding: 8px; border-bottom: 1px solid #f1f5f9; }
+
+        .clear-log {
+            margin-top: 10px;
+            background: transparent;
+            color: #ef4444;
+            font-size: 0.75rem;
+            text-decoration: underline;
+            padding: 0;
+        }
+    </style>
+</head>
+<body>
+
+<div class="calculator-card">
+    <h2>Transit Grade Calc</h2>
+
+    <div class="input-group">
+        <label>Station/Note (Optional)</label>
+        <input type="text" id="note" placeholder="e.g. Station 1+00">
+    </div>
+
+    <div class="input-group">
+        <label>Elevation A</label>
+        <input type="number" id="elevA" step="any" placeholder="Start Height">
+    </div>
+
+    <div class="input-group">
+        <label>Elevation B</label>
+        <input type="number" id="elevB" step="any" placeholder="End Height">
+    </div>
+
+    <div class="input-group">
+        <label>Horizontal Distance</label>
+        <input type="number" id="distance" step="any" placeholder="Run">
+    </div>
+
+    <div class="button-stack">
+        <button class="btn-calc" onclick="calculate()">Calculate</button>
+        <button id="saveBtn" class="btn-save" onclick="saveToLog()">Save to Log</button>
+        <button class="btn-reset" onclick="resetForm()">Reset</button>
+    </div>
+
+    <div id="result-area">
+        <div style="font-size: 0.9rem; color: var(--secondary);">Grade Percentage</div>
+        <div id="gradeResult" style="font-size: 2rem; font-weight: 800; color: var(--primary);">0%</div>
+    </div>
+</div>
+
+<div class="log-container">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h3 style="margin: 0;">Calculation Log</h3>
+        <button class="clear-log" onclick="clearLog()">Clear All</button>
+    </div>
+    <table>
+        <thead>
+            <tr>
+                <th>Note</th>
+                <th>Rise</th>
+                <th>Run</th>
+                <th>Grade</th>
+            </tr>
+        </thead>
+        <tbody id="logBody"></tbody>
+    </table>
+</div>
+
+<script>
+    let currentCalc = null;
+
+    // Load log from local storage on startup
+    window.onload = displayLog;
+
+    function calculate() {
+        const a = parseFloat(document.getElementById('elevA').value);
+        const b = parseFloat(document.getElementById('elevB').value);
+        const run = parseFloat(document.getElementById('distance').value);
+        const note = document.getElementById('note').value || "-";
+
+        if (isNaN(a) || isNaN(b) || isNaN(run) || run === 0) {
+            alert("Please fill in all fields with valid numbers.");
+            return;
+        }
+
+        const rise = (b - a).toFixed(2);
+        const grade = ((rise / run) * 100).toFixed(2);
+
+        document.getElementById('gradeResult').innerText = grade + "%";
+        document.getElementById('result-area').style.display = 'block';
+        document.getElementById('saveBtn').style.display = 'block';
+
+        currentCalc = { note, rise, run, grade: grade + "%" };
+    }
+
+    function saveToLog() {
+        if (!currentCalc) return;
+        let log = JSON.parse(localStorage.getItem('gradeLog') || '[]');
+        log.push(currentCalc);
+        localStorage.setItem('gradeLog', JSON.stringify(log));
+        displayLog();
+        resetForm();
+    }
+
+    function displayLog() {
+        let log = JSON.parse(localStorage.getItem('gradeLog') || '[]');
+        const body = document.getElementById('logBody');
+        body.innerHTML = log.map(item => `
+            <tr>
+                <td>${item.note}</td>
+                <td>${item.rise}</td>
+                <td>${item.run}</td>
+                <td style="font-weight:bold; color:var(--primary)">${item.grade}</td>
+            </tr>
+        `).reverse().join('');
+    }
+
+    function resetForm() {
+        document.querySelectorAll('input').forEach(i => i.value = '');
+        document.getElementById('result-area').style.display = 'none';
+        document.getElementById('saveBtn').style.display = 'none';
+        currentCalc = null;
+    }
+
+    function clearLog() {
+        if(confirm("Clear all saved measurements?")) {
+            localStorage.removeItem('gradeLog');
+            displayLog();
+        }
+    }
+</script>
+
+</body>
+</html>
